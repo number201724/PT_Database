@@ -14,6 +14,7 @@
 #include <vector>
 #include <mysql.h>
 #include <memory>
+#include <stdexcept>
 
 enum PT_DBValueType
 {

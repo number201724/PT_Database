@@ -684,7 +684,7 @@ void PT_Database::ParseError(int result)
 	throw PT_DBException(mysql_errno(&m_Conn), mysql_error(&m_Conn), mysql_sqlstate(&m_Conn));
 }
 
-PT_DBRecordset::PT_DBRecordset(PT_Database &database) : m_databaseRef(database)
+PT_DBRecordset::PT_DBRecordset(PT_Database &database) : m_databaseRef(database), result_index(0)
 {
 
 }
@@ -1300,178 +1300,323 @@ const PT_DBResults &PT_DBRecordset::GetResults()
 {
 	return results;
 }
-
-
 	//结果集移动
 bool PT_DBRecordset::FirstResult()
 {
-	
+	result_index = 0;
+
+	if(results.empty()){
+		return false;
+	}
+
+	return true;
 }
 
 bool PT_DBRecordset::NextResult()
 {
-
+	uint32_t index = result_index + 1;
+	if(index < results.size())
+	{
+		result_index = index;
+		return true;
+	}
+	return false;
 }
 
 bool PT_DBRecordset::PreviousResult()
 {
-
+	uint32_t index = result_index - 1;
+	if(index < results.size())
+	{
+		result_index = index;
+		return true;
+	}
+	return false;
 }
 
 bool PT_DBRecordset::LastResult()
 {
+	if(results.empty()){
+		return false;
+	}
 
+	result_index = results.size() - 1;
+
+	return true;
 }
 
 	//ROW移动
 bool PT_DBRecordset::MoveFirst()
 {
+	if(result_index >= results.size()){
+		throw std::out_of_range("PT_DBRecordset::result_index");
+	}
 
+	return results[result_index].MoveFirst();
 }
 
 bool PT_DBRecordset::MoveNext()
 {
+	if(result_index >= results.size()){
+		throw std::out_of_range("PT_DBRecordset::result_index");
+	}
 
+	return results[result_index].MoveNext();
 }
 
 bool PT_DBRecordset::MovePrevious()
 {
+	if(result_index >= results.size()){
+		throw std::out_of_range("PT_DBRecordset::result_index");
+	}
 
+	return results[result_index].MovePrevious();
 }
 
 bool PT_DBRecordset::MoveLast()
 {
+	if(result_index >= results.size()){
+		throw std::out_of_range("PT_DBRecordset::result_index");
+	}
 
+	return results[result_index].MoveLast();
 }
 
 const PT_DBRows& PT_DBRecordset::GetRows()
 {
+	if(result_index >= results.size()){
+		throw std::out_of_range("PT_DBRecordset::result_index");
+	}
 
+	return results[result_index].GetRows();
 }
 
 const PT_DBFields& PT_DBRecordset::GetFields()
 {
+	if(result_index >= results.size()){
+		throw std::out_of_range("PT_DBRecordset::result_index");
+	}
 
+	return results[result_index].GetFields();
 }
 
 bool PT_DBRecordset::GetFieldValue(const char *name, int32_t &outValue)
 {
+	if(result_index >= results.size()){
+		return false;
+	}
 
+	return results[result_index].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(std::string name, int32_t &outValue)
 {
+	if(result_index >= results.size()){
+		return false;
+	}
 
+	return results[result_index].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(uint32_t index, int32_t &outValue)
 {
+	if(result_index >= results.size()){
+		return false;
+	}
 
+	return results[result_index].GetFieldValue(index, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(const char *name, uint32_t &outValue)
 {
+	if(result_index >= results.size()){
+		return false;
+	}
 
+	return results[result_index].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(std::string name, uint32_t &outValue)
 {
+	if(result_index >= results.size()){
+		return false;
+	}
 
+	return results[result_index].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(uint32_t index, uint32_t &outValue)
 {
+	if(result_index >= results.size()){
+		return false;
+	}
 
+	return results[result_index].GetFieldValue(index, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(const char *name, int64_t &outValue)
 {
+	if(result_index >= results.size()){
+		return false;
+	}
 
+	return results[result_index].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(std::string name, int64_t &outValue)
 {
-
+	if(result_index >= results.size()){
+		return false;
+	}
+	
+	return results[result_index].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(uint32_t index, int64_t &outValue)
 {
-
+	if(result_index >= results.size()){
+		return false;
+	}
+	
+	return results[result_index].GetFieldValue(index, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(const char *name, uint64_t &outValue)
 {
-
+	if(result_index >= results.size()){
+		return false;
+	}
+	
+	return results[result_index].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(std::string name, uint64_t &outValue)
 {
-
+	if(result_index >= results.size()){
+		return false;
+	}
+	
+	return results[result_index].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(uint32_t index, uint64_t &outValue)
 {
-
+	if(result_index >= results.size()){
+		return false;
+	}
+	
+	return results[result_index].GetFieldValue(index, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(const char *name, std::string &outValue)
 {
-
+	if(result_index >= results.size()){
+		return false;
+	}
+	
+	return results[result_index].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(std::string name, std::string &outValue)
 {
-
+	if(result_index >= results.size()){
+		return false;
+	}
+	
+	return results[result_index].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(uint32_t index, std::string &outValue)
 {
-
+	if(result_index >= results.size()){
+		return false;
+	}
+	
+	return results[result_index].GetFieldValue(index, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(const char *name, float &outValue)
 {
-
+	if(result_index >= results.size()){
+		return false;
+	}
+	
+	return results[result_index].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(std::string name, float &outValue)
 {
-
+	if(result_index >= results.size()){
+		return false;
+	}
+	
+	return results[result_index].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(uint32_t index, float &outValue)
 {
-
+	if(result_index >= results.size()){
+		return false;
+	}
+	
+	return results[result_index].GetFieldValue(index, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(const char *name, double &outValue)
 {
-
+	if(result_index >= results.size()){
+		return false;
+	}
+	
+	return results[result_index].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(std::string name, double &outValue)
 {
-
+	if(result_index >= results.size()){
+		return false;
+	}
+	
+	return results[result_index].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(uint32_t index, double &outValue)
 {
-
+	if(result_index >= results.size()){
+		return false;
+	}
+	
+	return results[result_index].GetFieldValue(index, outValue);
 }
 
 uint32_t PT_DBRecordset::FindFieldIndex(std::string &name)
 {
+	if(result_index >= results.size())
+	{
+		return -1;
+	}
 
+	return results[result_index].FindFieldIndex(name);
 }
 
 uint32_t PT_DBRecordset::FindFieldIndex(const char *name)
 {
-
+	if(result_index >= results.size())
+	{
+		return -1;
+	}
+	
+	return results[result_index].FindFieldIndex(name);
 }
 
 uint32_t PT_DBRecordset::GetRecordCount()
 {
-	return results[result_index].size();
+	if(result_index >= results.size())
+	{
+		return 0;
+	}
+	
+	return results[result_index].GetRecordCount();
 }
 
 uint32_t PT_DBRecordset::GetResultCount()

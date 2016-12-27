@@ -22,16 +22,20 @@ int main(int argc, char *argv[])
         parameters.push_back(PT_DBValue(1));
         if(pRs.Open("SELECT * FROM test") /*&& pRs.GetRecordCount() > 0*/)
         {
-            /*
+            
             if(pRs.MoveFirst())
             {
                 do
                 {
-                    
+                    std::string out;
+
+                    pRs.GetFieldValue("test", out);
+
+                    std::cout << "test:" << out << std::endl;
                 }
                 while(pRs.MoveNext());
             }
-            */
+            
         }
 
         //pRs.Open("SELECT * FROM test;");

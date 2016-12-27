@@ -1,0 +1,11 @@
+{
+    "configurations": [
+        {
+            "name": "mac",
+            "includePath": [
+                "/usr/local/include",
+                "/usr/include"
+            ]
+        }
+    ]
+}
