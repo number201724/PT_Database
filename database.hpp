@@ -114,13 +114,11 @@ private:
 	struct PT_DatabaseAddress m_Address;
 	MYSQL m_Conn;
 	bool m_IsOpen;
-	bool m_IsInit;
 public:
 	PT_Database(std::string host, uint16_t port, std::string username, std::string password, std::string databaseName);
 	PT_Database(std::string address, std::string username, std::string password, std::string databaseName);
 
 	~PT_Database();
-	void Init();
 
 	bool IsOpen();
 	bool Open();

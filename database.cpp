@@ -513,7 +513,6 @@ const std::string &PT_DBException::get_sqlstate()
 }
 PT_Database::PT_Database(std::string host, uint16_t port, std::string username, std::string password, std::string databaseName)
 {
-	m_IsInit = false;
 	m_IsOpen = false;
 
 	m_Address.IsNetworkConn = true;
@@ -522,13 +521,10 @@ PT_Database::PT_Database(std::string host, uint16_t port, std::string username, 
 	m_Address.username = username;
 	m_Address.password = password;
 	m_Address.databaseName = databaseName;
-
-	Init();
 }
 
 PT_Database::PT_Database(std::string address, std::string username, std::string password, std::string databaseName)
 {
-	m_IsInit = false;
 	m_IsOpen = false;
 
 	m_Address.IsNetworkConn = false;
@@ -537,9 +533,6 @@ PT_Database::PT_Database(std::string address, std::string username, std::string 
 	m_Address.username = username;
 	m_Address.password = password;
 	m_Address.databaseName = databaseName;
-
-	Init();
-	
 }
 
 PT_Database::~PT_Database()
@@ -547,18 +540,6 @@ PT_Database::~PT_Database()
 
 }
 
-void PT_Database::Init()
-{
-	if(!m_IsInit)
-	{
-		my_bool reconnect = 1;
-		bzero(&m_Conn, sizeof(m_Conn));
-		mysql_init(&m_Conn);
-		mysql_options(&m_Conn, MYSQL_OPT_RECONNECT, &reconnect);
-
-		m_IsInit = true;
-	}
-}
 
 bool PT_Database::IsOpen()
 {
@@ -568,8 +549,14 @@ bool PT_Database::IsOpen()
 bool PT_Database::Open()
 {
 	MYSQL *pConn = NULL;
+	my_bool reconnect = 1;
 
-	Init();
+	if(m_IsOpen) return true;
+
+
+	bzero(&m_Conn, sizeof(m_Conn));
+	mysql_init(&m_Conn);
+	mysql_options(&m_Conn, MYSQL_OPT_RECONNECT, &reconnect);
 
 	if(m_Address.IsNetworkConn)
 	{
@@ -587,6 +574,7 @@ bool PT_Database::Open()
 	}
 
 	if(pConn == NULL) {
+		mysql_close(&m_Conn);
 		return false;
 	}
 
@@ -598,10 +586,10 @@ bool PT_Database::Open()
 
 void PT_Database::Close()
 {
-	if(m_IsInit)
+	if(m_IsOpen)
 	{
 		mysql_close(&m_Conn);
-		m_IsInit = false;
+		m_IsOpen = false;
 	}
 }
 
@@ -1101,6 +1089,8 @@ bool PT_DBRecordset::Open(const char *sql, PT_DBQueryParameter &parameters)
 	uint64_t num_fields;
 	MYSQL_RES *res;
 	unsigned long *output_length = NULL;
+
+	if(!m_databaseRef.IsOpen()) m_databaseRef.Open();
 
 	stmt = mysql_stmt_init(m_databaseRef.getConn());
 
