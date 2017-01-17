@@ -27,3 +27,6 @@
 *.exe
 *.out
 *.app
+
+.vscode/
+.ycm_extra_conf.*
