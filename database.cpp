@@ -61,7 +61,7 @@ PT_DBValue::~PT_DBValue()
 
 bool PT_DBValue::IsNull()
 {
-	return valueType = DB_VALUE_TYPE_NULL;
+	return (valueType = DB_VALUE_TYPE_NULL);
 }
 
 bool PT_DBValue::IsUnsigned()
@@ -127,6 +127,7 @@ uint32_t PT_DBValue::getUInt()
 			value = (uint32_t)uint64Value;
 			break;
 		case DB_VALUE_TYPE_STRING:
+		case DB_VALUE_TYPE_BLOB:
 			sscanf(stringValue.c_str(), "%u", &value);
 			break;
 		case DB_VALUE_TYPE_FLOAT:
@@ -537,7 +538,7 @@ PT_Database::PT_Database(std::string address, std::string username, std::string 
 
 PT_Database::~PT_Database()
 {
-
+	Close();
 }
 
 
@@ -552,7 +553,6 @@ bool PT_Database::Open()
 	my_bool reconnect = 1;
 
 	if(m_IsOpen) return true;
-
 
 	bzero(&m_Conn, sizeof(m_Conn));
 	mysql_init(&m_Conn);
@@ -569,8 +569,6 @@ bool PT_Database::Open()
 		pConn = mysql_real_connect(&m_Conn, NULL,m_Address.username.c_str(),
 				m_Address.password.c_str(),m_Address.databaseName.c_str(),
 				0,m_Address.address.c_str(),CLIENT_MULTI_STATEMENTS);
-
-		
 	}
 
 	if(pConn == NULL) {
@@ -672,14 +670,10 @@ void PT_Database::ParseError(int result)
 	throw PT_DBException(mysql_errno(&m_Conn), mysql_error(&m_Conn), mysql_sqlstate(&m_Conn));
 }
 
-PT_DBRecordset::PT_DBRecordset(PT_Database &database) : m_databaseRef(database), result_index(0)
-{
-
-}
 
 
 
-PT_DBResult::PT_DBResult() : row_index(0) , affected_rows(0)
+PT_DBResult::PT_DBResult() : current_row(0) , affected_rows(0)
 {
 
 }
@@ -689,273 +683,217 @@ PT_DBResult::~PT_DBResult()
 
 }
 
-bool PT_DBResult::GetFieldValue(const char *name, int32_t &outValue)
+bool PT_DBResult::IsCurrentValidRow()
 {
-	uint32_t index = FindFieldIndex(name);
-
-	if(index == -1)
+	if(current_row >= 0 && current_row < (int64_t)rows.size())
 	{
-		return false;
+		return true;
 	}
 
-	outValue = rows[row_index][index].getInt();
+	return false;
+}
+
+bool PT_DBResult::IsCurrentValidField(int64_t field_index)
+{
+	if(field_index >= 0 && field_index < (int64_t)rows[current_row].size())
+	{
+		return true;
+	}
+
+	return false;
+}
+
+#define VALID_FIND_FIELD_BY_NAME() 	int64_t index;	\
+	if(!IsCurrentValidRow()) return false;	\
+	index = GetFieldIndex(name);	\
+	if(!IsCurrentValidField(index)) return false;	
+
+#define VALID_ROW_AND_INDEX() 	if(!IsCurrentValidRow()) return false;	\
+	if(!IsCurrentValidField(index)) return false;	
+
+bool PT_DBResult::GetFieldValue(const char *name, int32_t &outValue)
+{
+	VALID_FIND_FIELD_BY_NAME();
+	
+	outValue = rows[current_row][index].getInt();
 	
 	return true;
 }
 
 bool PT_DBResult::GetFieldValue(std::string name, int32_t &outValue)
 {
-	uint32_t index = FindFieldIndex(name);
+	VALID_FIND_FIELD_BY_NAME();
 
-	if(index == -1)
-	{
-		return false;
-	}
-
-	outValue = rows[row_index][index].getInt();
+	outValue = rows[current_row][index].getInt();
 	
 	return true;
 }
 
-bool PT_DBResult::GetFieldValue(uint32_t index, int32_t &outValue)
+bool PT_DBResult::GetFieldValue(int64_t index, int32_t &outValue)
 {
-	if(index < fields.size()) {
-		outValue = rows[row_index][index].getInt();
-		return true;
-	}
+	VALID_ROW_AND_INDEX();
 
-	return false;
+	outValue = rows[current_row][index].getInt();
+	return true;
 }
 
 bool PT_DBResult::GetFieldValue(const char *name, uint32_t &outValue)
 {
-	uint32_t index = FindFieldIndex(name);
-
-	if(index == -1)
-	{
-		return false;
-	}
-
-	outValue = rows[row_index][index].getUInt();
+	VALID_FIND_FIELD_BY_NAME();
 	
+	outValue = rows[current_row][index].getUInt();
 	return true;
 }
 
 bool PT_DBResult::GetFieldValue(std::string name, uint32_t &outValue)
 {
-	uint32_t index = FindFieldIndex(name);
+	VALID_FIND_FIELD_BY_NAME();
 
-	if(index == -1)
-	{
-		return false;
-	}
-
-	outValue = rows[row_index][index].getUInt();
+	outValue = rows[current_row][index].getUInt();
 	
 	return true;
 }
 
-bool PT_DBResult::GetFieldValue(uint32_t index, uint32_t &outValue)
+bool PT_DBResult::GetFieldValue(int64_t index, uint32_t &outValue)
 {
-	if(index < fields.size()) {
-		outValue = rows[row_index][index].getUInt();
-		return true;
-	}
+	VALID_ROW_AND_INDEX();
 
-	return false;
+	outValue = rows[current_row][index].getUInt();
+	return true;
 }
 
 bool PT_DBResult::GetFieldValue(const char *name, int64_t &outValue)
 {
-	uint32_t index = FindFieldIndex(name);
+	VALID_FIND_FIELD_BY_NAME();
 
-	if(index == -1)
-	{
-		return false;
-	}
-
-	outValue = rows[row_index][index].getInt64();
-	
+	outValue = rows[current_row][index].getInt64();
 	return true;
 }
 
 bool PT_DBResult::GetFieldValue(std::string name, int64_t &outValue)
 {
-	uint32_t index = FindFieldIndex(name);
+	VALID_FIND_FIELD_BY_NAME();
 
-	if(index == -1)
-	{
-		return false;
-	}
-
-	outValue = rows[row_index][index].getInt64();
-	
+	outValue = rows[current_row][index].getInt64();
 	return true;
 }
 
-bool PT_DBResult::GetFieldValue(uint32_t index, int64_t &outValue)
+bool PT_DBResult::GetFieldValue(int64_t index, int64_t &outValue)
 {
-	if(index < fields.size()) {
-		outValue = rows[row_index][index].getInt64();
-		return true;
-	}
+	VALID_ROW_AND_INDEX();
 
-	return false;
+	outValue = rows[current_row][index].getInt64();
+	return true;
 }
 
 bool PT_DBResult::GetFieldValue(const char *name, uint64_t &outValue)
 {
-	uint32_t index = FindFieldIndex(name);
+	VALID_FIND_FIELD_BY_NAME();
 
-	if(index == -1)
-	{
-		return false;
-	}
-
-	outValue = rows[row_index][index].getUInt64();
+	outValue = rows[current_row][index].getUInt64();
 	
 	return true;
 }
 bool PT_DBResult::GetFieldValue(std::string name, uint64_t &outValue)
 {
-	uint32_t index = FindFieldIndex(name);
+	VALID_FIND_FIELD_BY_NAME();
 
-	if(index == -1)
-	{
-		return false;
-	}
-
-	outValue = rows[row_index][index].getUInt64();
-	
+	outValue = rows[current_row][index].getUInt64();
 	return true;
 }
-bool PT_DBResult::GetFieldValue(uint32_t index, uint64_t &outValue)
+bool PT_DBResult::GetFieldValue(int64_t index, uint64_t &outValue)
 {
-	if(index < fields.size()) {
-		outValue = rows[row_index][index].getUInt64();
-		return true;
-	}
+	VALID_ROW_AND_INDEX();
 
-	return false;
+	outValue = rows[current_row][index].getUInt64();
+	return true;
 }
 
 bool PT_DBResult::GetFieldValue(const char *name, std::string &outValue)
 {
-	uint32_t index = FindFieldIndex(name);
+	VALID_FIND_FIELD_BY_NAME();
 
-	if(index == -1)
-	{
-		return false;
-	}
-
-	outValue = rows[row_index][index].getString();
+	outValue = rows[current_row][index].getString();
 	
 	return true;
 }
 
 bool PT_DBResult::GetFieldValue(std::string name, std::string &outValue)
 {
-	uint32_t index = FindFieldIndex(name);
+	VALID_FIND_FIELD_BY_NAME();
 
-	if(index == -1)
-	{
-		return false;
-	}
-
-	outValue = rows[row_index][index].getString();
+	outValue = rows[current_row][index].getString();
 	
 	return true;
 }
 
-bool PT_DBResult::GetFieldValue(uint32_t index, std::string &outValue)
+bool PT_DBResult::GetFieldValue(int64_t index, std::string &outValue)
 {
-	if(index < fields.size()) {
-		outValue = rows[row_index][index].getString();
-		return true;
-	}
+	VALID_ROW_AND_INDEX();
 
-	return false;
+	outValue = rows[current_row][index].getString();
+	return true;
 }
 
 bool PT_DBResult::GetFieldValue(const char *name, float &outValue)
 {
-	uint32_t index = FindFieldIndex(name);
+	VALID_FIND_FIELD_BY_NAME();
 
-	if(index == -1)
-	{
-		return false;
-	}
-
-	outValue = rows[row_index][index].getFloat();
+	outValue = rows[current_row][index].getFloat();
 	
 	return true;
 }
 
 bool PT_DBResult::GetFieldValue(std::string name, float &outValue)
 {
-	uint32_t index = FindFieldIndex(name);
+	VALID_FIND_FIELD_BY_NAME();
 
-	if(index == -1)
-	{
-		return false;
-	}
-
-	outValue = rows[row_index][index].getFloat();
+	outValue = rows[current_row][index].getFloat();
 	
 	return true;
 }
 
-bool PT_DBResult::GetFieldValue(uint32_t index, float &outValue)
+bool PT_DBResult::GetFieldValue(int64_t index, float &outValue)
 {
-	if(index < fields.size()) {
-		outValue = rows[row_index][index].getFloat();
-		return true;
-	}
+	VALID_ROW_AND_INDEX();
 
-	return false;
+	outValue = rows[current_row][index].getFloat();
+	return true;
 }
 
 bool PT_DBResult::GetFieldValue(const char *name, double &outValue)
 {
-	uint32_t index = FindFieldIndex(name);
+	VALID_FIND_FIELD_BY_NAME();
 
-	if(index == -1)
-	{
-		return false;
-	}
-
-	outValue = rows[row_index][index].getDouble();
+	outValue = rows[current_row][index].getDouble();
 	
 	return true;
 }
 
 bool PT_DBResult::GetFieldValue(std::string name, double &outValue)
 {
-	uint32_t index = FindFieldIndex(name);
+	VALID_FIND_FIELD_BY_NAME();
 
-	if(index == -1)
-	{
-		return false;
-	}
-
-	outValue = rows[row_index][index].getDouble();
+	outValue = rows[current_row][index].getDouble();
 	
 	return true;
 }
 
-bool PT_DBResult::GetFieldValue(uint32_t index, double &outValue)
-{
-	if(index < fields.size()) {
-		outValue = rows[row_index][index].getDouble();
-		return true;
-	}
 
-	return false;
+bool PT_DBResult::GetFieldValue(int64_t index, double &outValue)
+{
+	VALID_ROW_AND_INDEX();
+
+	outValue = rows[current_row][index].getDouble();
+	return true;
 }
 
-uint32_t PT_DBResult::FindFieldIndex(std::string &name)
+#undef VALID_FIND_FIELD_BY_NAME
+#undef VALID_ROW_AND_INDEX
+
+int64_t PT_DBResult::GetFieldIndex(std::string &name)
 {
-	for(size_t i = 0; i < fields.size(); i++)
+	for(int64_t i = 0; i < (int64_t)fields.size(); i++)
 	{
 		if(!fields[i].name.compare(name))
 		{
@@ -966,9 +904,9 @@ uint32_t PT_DBResult::FindFieldIndex(std::string &name)
 	return -1;
 }
 
-uint32_t PT_DBResult::FindFieldIndex(const char *name)
+int64_t PT_DBResult::GetFieldIndex(const char *name)
 {
-	for(size_t i = 0; i < fields.size(); i++)
+	for(int64_t i = 0; i < (int64_t)fields.size(); i++)
 	{
 		if(!fields[i].name.compare(name))
 		{
@@ -979,57 +917,51 @@ uint32_t PT_DBResult::FindFieldIndex(const char *name)
 	return -1;
 }
 
-uint32_t PT_DBResult::GetRecordCount()
+int64_t PT_DBResult::GetRecordCount()
 {
 	return rows.size();
 }
 
-bool PT_DBResult::MoveFirst()
+bool PT_DBResult::IsEOF()
 {
-	if(rows.empty()){
-		return false;
-	}
-
-	row_index = 0;
-
-	return true;
-}
-
-bool PT_DBResult::MoveNext()
-{
-	if(row_index + 1 < rows.size()){
-		row_index++;
+	if(current_row >= (int64_t)rows.size())
+	{
 		return true;
 	}
 
 	return false;
 }
 
-bool PT_DBResult::MovePrevious()
+void PT_DBResult::MoveFirst()
 {
-	if(rows.empty())
-	{
-		return false;
-	}
-
-	if(row_index - 1 < rows.size()){
-		row_index = row_index - 1;
-		return true;
-	}
-
-	return false;
+	current_row = 0;
 }
 
-bool PT_DBResult::MoveLast()
+void PT_DBResult::MoveNext()
 {
-	if(rows.empty())
+	current_row++;
+}
+
+void PT_DBResult::MovePrevious()
+{
+	int64_t previous_row = current_row - 1;
+
+	if(previous_row < 0)
 	{
-		return false;
+		return;
 	}
 
-	row_index = rows.size() - 1;
+	current_row = previous_row;
+}
 
-	return true;
+void PT_DBResult::MoveLast()
+{
+	int64_t last_row = rows.size() - 1;
+
+	if(last_row > 0)
+	{
+		current_row = last_row;
+	}
 }
 
 const PT_DBRows& PT_DBResult::GetRows()
@@ -1043,7 +975,12 @@ const PT_DBFields& PT_DBResult::GetFields()
 }
 
 
-PT_DBRecordset::PT_DBRecordset(PT_Database *database) : m_databaseRef(*database)
+PT_DBRecordset::PT_DBRecordset(PT_Database &database) : m_databaseRef(database), current_result(0)
+{
+
+}
+
+PT_DBRecordset::PT_DBRecordset(PT_Database *database) : m_databaseRef(*database), current_result(0)
 {
 
 }
@@ -1153,7 +1090,6 @@ bool PT_DBRecordset::Open(const char *sql, PT_DBQueryParameter &parameters)
 					field.is_primary_key = res->fields[i].flags & PRI_KEY_FLAG;
 					field.is_unique_key = res->fields[i].flags & UNIQUE_KEY_FLAG;
 
-					//std::cout << "field " << i << " name:" << field.name << " type:" << field.type << "unsigned:" << field.is_unsigned << std::endl;
 
 					db_result.fields.push_back(field);
 				}
@@ -1290,326 +1226,341 @@ const PT_DBResults &PT_DBRecordset::GetResults()
 {
 	return results;
 }
-	//结果集移动
-bool PT_DBRecordset::FirstResult()
+
+//结果集移动
+void PT_DBRecordset::FirstResult()
 {
-	result_index = 0;
-
-	if(results.empty()){
-		return false;
-	}
-
-	return true;
+	current_result = 0;
 }
 
-bool PT_DBRecordset::NextResult()
+void PT_DBRecordset::NextResult()
 {
-	uint32_t index = result_index + 1;
-	if(index < results.size())
+	current_result++;
+}
+
+void PT_DBRecordset::PreviousResult()
+{
+	int64_t previous_result = current_result - 1;
+
+	if(previous_result < 0)
 	{
-		result_index = index;
+		return;
+	}
+
+	current_result = previous_result;
+}
+
+void PT_DBRecordset::LastResult()
+{
+	int64_t last_result = results.size() - 1;
+
+	if(last_result > 0)
+	{
+		current_result = last_result;
+	}
+}
+
+bool PT_DBRecordset::IsResultEOF()
+{
+	if(current_result >= (int64_t)results.size())
+	{
+		return true;
+	}
+
+	return false;
+}
+
+bool PT_DBRecordset::IsCurrentValidResult()
+{
+	if(current_result >= 0 && current_result < (int64_t)results.size())
+	{
 		return true;
 	}
 	return false;
 }
 
-bool PT_DBRecordset::PreviousResult()
+//ROW移动
+void PT_DBRecordset::MoveFirst()
 {
-	uint32_t index = result_index - 1;
-	if(index < results.size())
-	{
-		result_index = index;
-		return true;
+	if(!IsCurrentValidResult()){
+		return;
 	}
-	return false;
+
+	return results[current_result].MoveFirst();
 }
 
-bool PT_DBRecordset::LastResult()
+void PT_DBRecordset::MoveNext()
 {
-	if(results.empty()){
+	if(!IsCurrentValidResult()){
+		return;
+	}
+
+	return results[current_result].MoveNext();
+}
+
+void PT_DBRecordset::MovePrevious()
+{
+	if(!IsCurrentValidResult()){
+		return;
+	}
+
+	return results[current_result].MovePrevious();
+}
+
+void PT_DBRecordset::MoveLast()
+{
+	if(!IsCurrentValidResult()){
+		return;
+	}
+
+	return results[current_result].MoveLast();
+}
+
+bool PT_DBRecordset::IsEOF()
+{
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 
-	result_index = results.size() - 1;
-
-	return true;
+	return results[current_result].IsEOF();
 }
 
-	//ROW移动
-bool PT_DBRecordset::MoveFirst()
+const PT_DBRows* PT_DBRecordset::GetRows()
 {
-	if(result_index >= results.size()){
-		throw std::out_of_range("PT_DBRecordset::result_index");
+	if(!IsCurrentValidResult())
+	{
+		return nullptr;
 	}
 
-	return results[result_index].MoveFirst();
+	return &results[current_result].GetRows();
 }
 
-bool PT_DBRecordset::MoveNext()
+const PT_DBFields* PT_DBRecordset::GetFields()
 {
-	if(result_index >= results.size()){
-		throw std::out_of_range("PT_DBRecordset::result_index");
+	if(!IsCurrentValidResult()){
+		return nullptr;
 	}
 
-	return results[result_index].MoveNext();
-}
-
-bool PT_DBRecordset::MovePrevious()
-{
-	if(result_index >= results.size()){
-		throw std::out_of_range("PT_DBRecordset::result_index");
-	}
-
-	return results[result_index].MovePrevious();
-}
-
-bool PT_DBRecordset::MoveLast()
-{
-	if(result_index >= results.size()){
-		throw std::out_of_range("PT_DBRecordset::result_index");
-	}
-
-	return results[result_index].MoveLast();
-}
-
-const PT_DBRows& PT_DBRecordset::GetRows()
-{
-	if(result_index >= results.size()){
-		throw std::out_of_range("PT_DBRecordset::result_index");
-	}
-
-	return results[result_index].GetRows();
-}
-
-const PT_DBFields& PT_DBRecordset::GetFields()
-{
-	if(result_index >= results.size()){
-		throw std::out_of_range("PT_DBRecordset::result_index");
-	}
-
-	return results[result_index].GetFields();
+	return &results[current_result].GetFields();
 }
 
 bool PT_DBRecordset::GetFieldValue(const char *name, int32_t &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 
-	return results[result_index].GetFieldValue(name, outValue);
+	return results[current_result].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(std::string name, int32_t &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 
-	return results[result_index].GetFieldValue(name, outValue);
+	return results[current_result].GetFieldValue(name, outValue);
 }
 
-bool PT_DBRecordset::GetFieldValue(uint32_t index, int32_t &outValue)
+bool PT_DBRecordset::GetFieldValue(int64_t index, int32_t &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 
-	return results[result_index].GetFieldValue(index, outValue);
+	return results[current_result].GetFieldValue(index, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(const char *name, uint32_t &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 
-	return results[result_index].GetFieldValue(name, outValue);
+	return results[current_result].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(std::string name, uint32_t &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 
-	return results[result_index].GetFieldValue(name, outValue);
+	return results[current_result].GetFieldValue(name, outValue);
 }
 
-bool PT_DBRecordset::GetFieldValue(uint32_t index, uint32_t &outValue)
+bool PT_DBRecordset::GetFieldValue(int64_t index, uint32_t &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 
-	return results[result_index].GetFieldValue(index, outValue);
+	return results[current_result].GetFieldValue(index, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(const char *name, int64_t &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 
-	return results[result_index].GetFieldValue(name, outValue);
+	return results[current_result].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(std::string name, int64_t &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 	
-	return results[result_index].GetFieldValue(name, outValue);
+	return results[current_result].GetFieldValue(name, outValue);
 }
 
-bool PT_DBRecordset::GetFieldValue(uint32_t index, int64_t &outValue)
+bool PT_DBRecordset::GetFieldValue(int64_t index, int64_t &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 	
-	return results[result_index].GetFieldValue(index, outValue);
+	return results[current_result].GetFieldValue(index, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(const char *name, uint64_t &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 	
-	return results[result_index].GetFieldValue(name, outValue);
+	return results[current_result].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(std::string name, uint64_t &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 	
-	return results[result_index].GetFieldValue(name, outValue);
+	return results[current_result].GetFieldValue(name, outValue);
 }
 
-bool PT_DBRecordset::GetFieldValue(uint32_t index, uint64_t &outValue)
+bool PT_DBRecordset::GetFieldValue(int64_t index, uint64_t &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 	
-	return results[result_index].GetFieldValue(index, outValue);
+	return results[current_result].GetFieldValue(index, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(const char *name, std::string &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 	
-	return results[result_index].GetFieldValue(name, outValue);
+	return results[current_result].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(std::string name, std::string &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 	
-	return results[result_index].GetFieldValue(name, outValue);
+	return results[current_result].GetFieldValue(name, outValue);
 }
 
-bool PT_DBRecordset::GetFieldValue(uint32_t index, std::string &outValue)
+bool PT_DBRecordset::GetFieldValue(int64_t index, std::string &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 	
-	return results[result_index].GetFieldValue(index, outValue);
+	return results[current_result].GetFieldValue(index, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(const char *name, float &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 	
-	return results[result_index].GetFieldValue(name, outValue);
+	return results[current_result].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(std::string name, float &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 	
-	return results[result_index].GetFieldValue(name, outValue);
+	return results[current_result].GetFieldValue(name, outValue);
 }
 
-bool PT_DBRecordset::GetFieldValue(uint32_t index, float &outValue)
+bool PT_DBRecordset::GetFieldValue(int64_t index, float &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 	
-	return results[result_index].GetFieldValue(index, outValue);
+	return results[current_result].GetFieldValue(index, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(const char *name, double &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 	
-	return results[result_index].GetFieldValue(name, outValue);
+	return results[current_result].GetFieldValue(name, outValue);
 }
 
 bool PT_DBRecordset::GetFieldValue(std::string name, double &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 	
-	return results[result_index].GetFieldValue(name, outValue);
+	return results[current_result].GetFieldValue(name, outValue);
 }
 
-bool PT_DBRecordset::GetFieldValue(uint32_t index, double &outValue)
+bool PT_DBRecordset::GetFieldValue(int64_t index, double &outValue)
 {
-	if(result_index >= results.size()){
+	if(!IsCurrentValidResult()){
 		return false;
 	}
 	
-	return results[result_index].GetFieldValue(index, outValue);
+	return results[current_result].GetFieldValue(index, outValue);
 }
 
-uint32_t PT_DBRecordset::FindFieldIndex(std::string &name)
+int64_t PT_DBRecordset::GetFieldIndex(std::string &name)
 {
-	if(result_index >= results.size())
-	{
+	if(!IsCurrentValidResult()){
 		return -1;
 	}
 
-	return results[result_index].FindFieldIndex(name);
+	return results[current_result].GetFieldIndex(name);
 }
 
-uint32_t PT_DBRecordset::FindFieldIndex(const char *name)
+int64_t PT_DBRecordset::GetFieldIndex(const char *name)
 {
-	if(result_index >= results.size())
-	{
+	if(!IsCurrentValidResult()){
 		return -1;
 	}
 	
-	return results[result_index].FindFieldIndex(name);
+	return results[current_result].GetFieldIndex(name);
 }
 
-uint32_t PT_DBRecordset::GetRecordCount()
+int64_t PT_DBRecordset::GetRecordCount()
 {
-	if(result_index >= results.size())
-	{
+	if(!IsCurrentValidResult()){
 		return 0;
 	}
 	
-	return results[result_index].GetRecordCount();
+	return results[current_result].GetRecordCount();
 }
 
-uint32_t PT_DBRecordset::GetResultCount()
+int64_t PT_DBRecordset::GetResultCount()
 {
 	return results.size();
 }

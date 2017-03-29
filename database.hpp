@@ -118,7 +118,7 @@ public:
 	PT_Database(std::string host, uint16_t port, std::string username, std::string password, std::string databaseName);
 	PT_Database(std::string address, std::string username, std::string password, std::string databaseName);
 
-	~PT_Database();
+	virtual ~PT_Database();
 
 	bool IsOpen();
 	bool Open();
@@ -161,53 +161,63 @@ public:
 	//如果没有fields的信息则会获取到这个
 	PT_DBFields fields;
 	PT_DBRows rows;
-	uint32_t row_index;
-	uint64_t affected_rows;
+	int64_t current_row;
+	int64_t affected_rows;
 
 	PT_DBResult();
 	~PT_DBResult();
 
 	//ROW移动
-	bool MoveFirst();
-	bool MoveNext();
-	bool MovePrevious();
-	bool MoveLast();
+	void MoveFirst();
+	void MoveNext();
+	void MovePrevious();
+	void MoveLast();
+
+	bool IsEOF();
 
 	const PT_DBRows& GetRows();
 	const PT_DBFields& GetFields();
 
+	//验证当前Row是否有效(current_row)
+	bool IsCurrentValidRow();
+	//验证field是否有效
+	bool IsCurrentValidField(int64_t field_index);
+
+	/*
+		 获取Field的数据
+	*/
 	bool GetFieldValue(const char *name, int32_t &outValue);
 	bool GetFieldValue(std::string name, int32_t &outValue);
-	bool GetFieldValue(uint32_t index, int32_t &outValue);
+	bool GetFieldValue(int64_t index, int32_t &outValue);
 
 	bool GetFieldValue(const char *name, uint32_t &outValue);
 	bool GetFieldValue(std::string name, uint32_t &outValue);
-	bool GetFieldValue(uint32_t index, uint32_t &outValue);
+	bool GetFieldValue(int64_t index, uint32_t &outValue);
 
 	bool GetFieldValue(const char *name, int64_t &outValue);
 	bool GetFieldValue(std::string name, int64_t &outValue);
-	bool GetFieldValue(uint32_t index, int64_t &outValue);
+	bool GetFieldValue(int64_t index, int64_t &outValue);
 
 	bool GetFieldValue(const char *name, uint64_t &outValue);
 	bool GetFieldValue(std::string name, uint64_t &outValue);
-	bool GetFieldValue(uint32_t index, uint64_t &outValue);
+	bool GetFieldValue(int64_t index, uint64_t &outValue);
 
 	bool GetFieldValue(const char *name, std::string &outValue);
 	bool GetFieldValue(std::string name, std::string &outValue);
-	bool GetFieldValue(uint32_t index, std::string &outValue);
+	bool GetFieldValue(int64_t index, std::string &outValue);
 
 	bool GetFieldValue(const char *name, float &outValue);
 	bool GetFieldValue(std::string name, float &outValue);
-	bool GetFieldValue(uint32_t index, float &outValue);
+	bool GetFieldValue(int64_t index, float &outValue);
 
 	bool GetFieldValue(const char *name, double &outValue);
 	bool GetFieldValue(std::string name, double &outValue);
-	bool GetFieldValue(uint32_t index, double &outValue);
+	bool GetFieldValue(int64_t index, double &outValue);
 
-	uint32_t FindFieldIndex(std::string &name);
-	uint32_t FindFieldIndex(const char *name);
+	int64_t GetFieldIndex(std::string &name);
+	int64_t GetFieldIndex(const char *name);
 
-	uint32_t GetRecordCount();
+	int64_t GetRecordCount();
 };
 
 typedef std::vector<PT_DBResult> PT_DBResults;
@@ -227,60 +237,65 @@ public:
 	bool Open(const char *sql, PT_DBQueryParameter &parameters);
 	const PT_DBResults &GetResults();
 
+	//当前是否有效的结果集
+	bool IsCurrentValidResult();
+
 	//结果集移动
-	bool FirstResult();
-	bool NextResult();
-	bool PreviousResult();
-	bool LastResult();
+	void FirstResult();
+	void NextResult();
+	void PreviousResult();
+	void LastResult();
+	bool IsResultEOF();
 
 	//ROW移动
-	bool MoveFirst();
-	bool MoveNext();
-	bool MovePrevious();
-	bool MoveLast();
+	void MoveFirst();
+	void MoveNext();
+	void MovePrevious();
+	void MoveLast();
+	bool IsEOF();
 
-	const PT_DBRows& GetRows();
-	const PT_DBFields& GetFields();
+	const PT_DBRows* GetRows();
+	const PT_DBFields* GetFields();
 
 	bool GetFieldValue(const char *name, int32_t &outValue);
 	bool GetFieldValue(std::string name, int32_t &outValue);
-	bool GetFieldValue(uint32_t index, int32_t &outValue);
+	bool GetFieldValue(int64_t index, int32_t &outValue);
 
 	bool GetFieldValue(const char *name, uint32_t &outValue);
 	bool GetFieldValue(std::string name, uint32_t &outValue);
-	bool GetFieldValue(uint32_t index, uint32_t &outValue);
+	bool GetFieldValue(int64_t index, uint32_t &outValue);
 
 	bool GetFieldValue(const char *name, int64_t &outValue);
 	bool GetFieldValue(std::string name, int64_t &outValue);
-	bool GetFieldValue(uint32_t index, int64_t &outValue);
+	bool GetFieldValue(int64_t index, int64_t &outValue);
 
 	bool GetFieldValue(const char *name, uint64_t &outValue);
 	bool GetFieldValue(std::string name, uint64_t &outValue);
-	bool GetFieldValue(uint32_t index, uint64_t &outValue);
+	bool GetFieldValue(int64_t index, uint64_t &outValue);
 
 	bool GetFieldValue(const char *name, std::string &outValue);
 	bool GetFieldValue(std::string name, std::string &outValue);
-	bool GetFieldValue(uint32_t index, std::string &outValue);
+	bool GetFieldValue(int64_t index, std::string &outValue);
 
 	bool GetFieldValue(const char *name, float &outValue);
 	bool GetFieldValue(std::string name, float &outValue);
-	bool GetFieldValue(uint32_t index, float &outValue);
+	bool GetFieldValue(int64_t index, float &outValue);
 
 	bool GetFieldValue(const char *name, double &outValue);
 	bool GetFieldValue(std::string name, double &outValue);
-	bool GetFieldValue(uint32_t index, double &outValue);
+	bool GetFieldValue(int64_t index, double &outValue);
 
-	uint32_t FindFieldIndex(std::string &name);
-	uint32_t FindFieldIndex(const char *name);
+	int64_t GetFieldIndex(std::string &name);
+	int64_t GetFieldIndex(const char *name);
 
-	uint32_t GetRecordCount();
-	uint32_t GetResultCount();
+	int64_t GetRecordCount();
+	int64_t GetResultCount();
 
 	void ParseError(MYSQL_STMT *stmt, int err);
 private:
 	PT_Database &m_databaseRef;
 	//结果集
 	PT_DBResults results;
-	uint32_t result_index;
+	int64_t current_result;
 };
 #endif
