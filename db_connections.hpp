@@ -7,6 +7,13 @@
 class db_connref;
 class db_connections;
 
+class db_refexcept
+{
+public:
+    db_refexcept();
+    ~db_refexcept();
+};
+
 class db_instance : public PT_Database
 {
 	friend class db_connections;
@@ -67,10 +74,9 @@ struct db_connections_config
  * */
 class db_connections
 {
-	friend class db_connref;
 public:
 	db_connections();
-	~db_connections();
+	virtual ~db_connections();
 	
 	//初始化数据库连接池(使用网络套接字)
 	void setConnection(std::string str_host,
@@ -110,6 +116,8 @@ public:
 	bool loadConfig(std::string str_file,
 			std::string str_section
 	);
+    
+    bool loadConfig(Json::Value config);
 
 	/*
 	 * 数据库连接池开始建立连接
@@ -130,7 +138,7 @@ public:
 		添加数据库连接池的最大连接
 	*/
 	void addMaxConnection(int count);
-private:
+public:
 
 	/*
 	 * 释放一个数据库连接
@@ -175,7 +183,8 @@ private:
 class db_connref
 {
 public:
-	db_connref(db_connections &connections) throw(std::exception);
+	db_connref(db_connections &connections) throw(db_refexcept);
+    db_connref(db_connections *connections) throw(db_refexcept);
 	~db_connref();
 	
 	//指针访问

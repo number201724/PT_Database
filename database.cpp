@@ -1,3 +1,4 @@
+#include "common.hpp"
 #include "database.hpp"
 
 PT_DBValue::PT_DBValue()
@@ -552,11 +553,12 @@ bool PT_Database::Open()
 	MYSQL *pConn = NULL;
 	my_bool reconnect = 1;
 
-	if(m_IsOpen) return true;
+	if(m_IsOpen)
+        return true;
 
 	bzero(&m_Conn, sizeof(m_Conn));
 	mysql_init(&m_Conn);
-	mysql_options(&m_Conn, MYSQL_OPT_RECONNECT, &reconnect);
+	
 
 	if(m_Address.IsNetworkConn)
 	{
@@ -575,7 +577,8 @@ bool PT_Database::Open()
 		mysql_close(&m_Conn);
 		return false;
 	}
-
+    
+    mysql_options(&m_Conn, MYSQL_OPT_RECONNECT, &reconnect);
 	
 	m_IsOpen = true;
 
@@ -657,7 +660,7 @@ uint32_t PT_Database::Execute(const char *sql)
 		}
 	}while(status == 0);
 
-	return mysql_affected_rows(&m_Conn);
+	return (uint32_t)mysql_affected_rows(&m_Conn);
 }
 
 void PT_Database::ParseError(int result)
@@ -1027,7 +1030,10 @@ bool PT_DBRecordset::Open(const char *sql, PT_DBQueryParameter &parameters)
 	MYSQL_RES *res;
 	unsigned long *output_length = NULL;
 
-	if(!m_databaseRef.IsOpen()) m_databaseRef.Open();
+	if(!m_databaseRef.IsOpen())
+        m_databaseRef.Open();
+    
+    results.clear();
 
 	stmt = mysql_stmt_init(m_databaseRef.getConn());
 
@@ -1136,7 +1142,7 @@ bool PT_DBRecordset::Open(const char *sql, PT_DBQueryParameter &parameters)
 						output[i].buffer_length = output_length[i];
 						output[i].is_null = &isNull;
 						
-						err = mysql_stmt_fetch_column(stmt, &output[i], i, 0);
+						err = mysql_stmt_fetch_column(stmt, &output[i],(unsigned int)i, 0);
 
 						if(err)
 						{
@@ -1563,4 +1569,13 @@ int64_t PT_DBRecordset::GetRecordCount()
 int64_t PT_DBRecordset::GetResultCount()
 {
 	return results.size();
+}
+
+int64_t PT_DBRecordset::GetAffectedRows()
+{
+    if(!IsCurrentValidResult()){
+        return 0;
+    }
+    
+    return results[current_result].affected_rows;
 }

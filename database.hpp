@@ -5,17 +5,6 @@
 #ifndef _DATABASE_HPP_INCLUDED_
 #define _DATABASE_HPP_INCLUDED_
 
-#include <iostream>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <string>
-#include <vector>
-#include <mysql.h>
-#include <memory>
-#include <stdexcept>
-
 enum PT_DBValueType
 {
 	DB_VALUE_TYPE_NULL,
@@ -290,6 +279,8 @@ public:
 
 	int64_t GetRecordCount();
 	int64_t GetResultCount();
+    int64_t GetAffectedRows();
+    //int64_t affected_rows
 
 	void ParseError(MYSQL_STMT *stmt, int err);
 private:

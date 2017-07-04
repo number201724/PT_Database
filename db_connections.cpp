@@ -1,6 +1,10 @@
-#include "shared.hpp"
+#include "common.hpp"
 #include "database.hpp"
 #include "db_connections.hpp"
+
+
+db_refexcept::db_refexcept(){}
+db_refexcept::~db_refexcept(){}
 
 db_instance::db_instance(std::string host, uint16_t port, std::string username,
     std::string password, std::string databaseName) :
@@ -102,6 +106,28 @@ bool db_connections::loadConfig(std::string str_file,
 
     ini_free(ini_fd);
 
+    return true;
+}
+
+bool db_connections::loadConfig(Json::Value config)
+{
+    try
+    {
+        _config.use_fd = config["use_pipe"].asBool();
+        _config.str_pipe = config["pipe"].asString();
+        _config.str_host = config["host"].asString();
+        _config.port = config["port"].asInt();
+        _config.str_charset = config["charset"].asString();
+        _config.str_database = config["database"].asString();
+        _config.str_username = config["username"].asString();
+        _config.str_password = config["password"].asString();
+        _config.min_connection = config["min_connection"].asInt();
+        _config.max_connection = config["max_connection"].asInt();
+    }
+    catch(Json::LogicError &err)
+    {
+        return false;
+    }
     return true;
 }
 
@@ -259,31 +285,38 @@ db_instance* db_connections::refernece()
     {
         db->_updated_at = time(NULL);
     }
+    
     return db;
 }
 
-db_connref::db_connref(db_connections &connections) throw (std::exception) :
+db_connref::db_connref(db_connections &connections) throw (db_refexcept) :
 _connections(connections), _database(NULL)
 {
     _database = _connections.refernece();
 
     if (_database == NULL)
     {
-        throw std::exception();
+        throw db_refexcept();
     }
+}
+
+db_connref::db_connref(db_connections *connections) throw(db_refexcept) :
+    db_connref::db_connref(*connections)
+{
+    
 }
 
 db_connref::~db_connref()
 {
     if (_database != NULL)
     {
-        _connections.release(dynamic_cast<db_instance *> (_database));
+        _connections.release(reinterpret_cast<db_instance *> (_database));
     }
 }
 
 PT_Database* db_connref::get_ptr()
 {
-    return dynamic_cast<PT_Database *> (_database);
+    return reinterpret_cast<PT_Database *> (_database);
 }
 
 db_instance *db_connref::get_real()
@@ -293,10 +326,10 @@ db_instance *db_connref::get_real()
 
 PT_Database* db_connref::operator*()
 {
-    return dynamic_cast<PT_Database *> (_database);
+    return reinterpret_cast<PT_Database *> (_database);
 }
 
 PT_Database* db_connref::operator->()
 {
-    return dynamic_cast<PT_Database *> (_database);
+    return reinterpret_cast<PT_Database *> (_database);
 }
